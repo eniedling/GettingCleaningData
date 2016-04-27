@@ -1,0 +1,119 @@
+---
+title: "Codebook - Getting and Cleaning Data"
+author: "Eric Niedling"
+date: "April 26, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This document describes files and variables and transformations used to clean the data and perform a basic analysis as im plemented in `run_analysis.R`.
+
+The data set is from an experiement on 'Human Activity Recognition Using Smartphones' and can be found here:
+`https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip`
+
+The R-script checks whether the data was already downloaded and unzipped.
+
+## Overview of the source data
+The following files are used:  
+
++ activity_labels.txt:  Links the class labels with their activity name.  
++ features.txt:         List of all features (as column names)   
++ train/X_train.txt:    Training set.  
++ train/y_train.txt:    Training labels.  
++ test/X_test.txt:      Test set.  
++ test/y_test.txt:      Test labels.  
++ train/subject_train.txt: Mapping file for subjects (training)   
++ test/subject_test.txt: Mapping file for subjects (test)  
+
+## Fields and data fields 
+### activity_labels.txt 
+Links the class labels with their activity name.  
+
+**V1** (integer) Activity ID as used in the data files   
+
+**V2** (factor)  There are six activities defined: 1 - WALKING, 2 - WALKING_UPSTAIRS, 3 - WALKING_DOWNSTAIRS, 4 - SITTING, 5 - STANDING, 6 - LAYING   
+
+###features.txt
+Reference table that contains the variable/column names for the features of the test and training set.
+
+**V1** (integer) Column index of the feature
+
+**V2** (factor)  Feature description. For a full explanation of the list of features, please refer to features_info.txt
+
+### subject_train.txt and subject_test.txt
+**V1** (integer) Each row identifies the subject who performed the activity for each window sample. Its range is from 1 to 30. subject_train.txt contains contains 7352 observations, subject_test.txt contains 2947 observations.
+
+### X_train.txt
+This is the training data with 7352 observations and 561 variables. The respective subjects are stored on subject_train.txt, to be linked by row.
+
+### X_test.txt
+This is the test data with 2947 observations and 561 variables. The respective subjects are stored on subject_test.txt, to be linked by row.
+
+### y_train.txt
+This file contains the activity IDs for each observation in the training data.
+There are 7352 observation, to be joined with the feature data by row.
+
+### y_test.txt
+This file contains the activity IDs for each observation in the test data.
+There are 2947 observation, to be joined with the feature data by row.
+
+
+The following libraries are used in the code and have to be installed.
+```{R echo = FALSE, message = FALSE}
+library(dplyr)
+library(data.table)
+library(tidyr)
+```
+
+## Data manipulation
+
+The files are downloaded into a folder called data, which will be created if it doesn't exist yet. After extracting the abovementioned files from the zip file, they are loaded into data frames. To improve the runtime of the script the faster fread is used.
+
+Data sets are labeled to identify subject, activity and features.
+
+The training and test data sets are respectively combined with the following field sequence:   
+
++ Subject
++ Activity
++ Sequence of features
+
+From the combined data set, all features are extracted that match "mean\\(\\)|std" and added to an integer vector. The vector is further extended to include columns 1 and 2, identifying the Subject and Activity.
+```{R echo = TRUE, message = FALSE, eval = FALSE}
+columnsMeanStd <- grep("mean\\(\\)|std",colnames(df_data))
+columnsMeanStd <- append(1:2, columnsMeanStd)
+```
+
+Subsequently, the Activity labels are merged with the main data, explicitely matching the file names.
+```{R echo = TRUE, message = FALSE, eval = FALSE}
+df_data <- merge(df_data, activity_ID_Desc, by.x="Activity", by.y = "ActivityID", all=TRUE)
+```
+
+To further improve the readibility of the data set, the variables are renamed:
+```{R echo = TRUE, message = FALSE, eval = FALSE}
+colnames(df_data) <- gsub("^t","time",colnames(df_data) )
+colnames(df_data) <- gsub("^f","frequency",colnames(df_data) )
+colnames(df_data) <- gsub("mean\\(\\)","Mean",colnames(df_data) )
+colnames(df_data) <- gsub("std\\(\\)","StandardDeviation",colnames(df_data) )
+colnames(df_data) <- gsub("Acc","Accelerometer",colnames(df_data) )
+colnames(df_data) <- gsub("Gyro","Gyroscope",colnames(df_data) )
+colnames(df_data) <- gsub("Mag","Magnitude",colnames(df_data) )
+colnames(df_data) <- gsub("BodyBody","Body",colnames(df_data) )
+```
+
+To calculate the averages for all mean and standard deviation variables, the data set is transformed collapsing all variables into one column and their values into a second column. Using `group_by` and `summarize` the averages are calculated on the level of Subject and activity. The final data set `final_result` is a data frame with 180 rows/observations (30 subjects with each 6 activities) and 68 variables (Subject, Activity and 66 features).
+```{R echo = TRUE, message = FALSE, eval = FALSE}
+df_data_tp <- gather(df_data, variable, value, -c(Subject, ActivityDesc) )
+df_data_tp <- group_by(df_data_tp, Subject, ActivityDesc, variable)
+final_result <- summarize(df_data_tp, mean = mean(value))
+final_result <- spread(final_result, variable, mean)
+```
+
+
+_Comment_
+
+Note that the `echo = TRUE` and `eval = FALSE` parameters were added to the code chunk to display the R code however prevent code execution.
