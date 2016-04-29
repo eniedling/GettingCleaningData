@@ -99,3 +99,5 @@ df_data_tp <- gather(df_data, variable, value, -c(Subject, ActivityDesc) )
 df_data_tp <- group_by(df_data_tp, Subject, ActivityDesc, variable)
 final_result <- summarize(df_data_tp, mean = mean(value))
 final_result <- spread(final_result, variable, mean)
+
+write.table(final_result, file = "final_result.txt", sep = ",", row.name=FALSE)
